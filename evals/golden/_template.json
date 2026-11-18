@@ -1,0 +1,29 @@
+{
+  "_source": "arXiv id, direct PDF URL, or local path used to fetch the paper",
+  "_labeled_by": "Janvita",
+  "_labeled_on": "YYYY-MM-DD",
+  "_minutes_spent": 0,
+
+  "paper_id": "same as file name without .json",
+  "title": "",
+  "year": null,
+
+  "problem": {"claim": "", "evidence": "one verbatim sentence from the paper"},
+  "task_type": "regression | classification | generation | ...",
+  "method_summary": {"claim": "", "evidence": ""},
+  "model_family": "",
+
+  "datasets": [
+    {"name": "", "size": "", "public": true, "split": "random | cluster-based | temporal | ...", "role": "train+test"}
+  ],
+  "results": [
+    {"metric": "Spearman", "value": 0.0, "dataset": "", "is_main_result": true}
+  ],
+  "baselines": [],
+
+  "strengths": [{"claim": "", "evidence": ""}],
+  "weaknesses": [{"claim": "", "evidence": null}],
+
+  "builds_on": [],
+  "code": {"url_in_paper": null, "repo_url": null, "verified": false}
+}
