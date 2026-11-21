@@ -9,3 +9,6 @@ dist/
 .pytest_cache/
 .ruff_cache/
 .DS_Store
+survey_antibody-property-prediction/
+.llm_cache/
+.oa_cache/
