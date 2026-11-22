@@ -1,0 +1,25 @@
+# Pipeline settings: retrieval, relevance filter, ranking, extraction, LLM pacing.
+# Models and providers are in llm.yaml. API keys are in .env.
+
+retrieval:
+  openalex_base: https://api.openalex.org
+  per_query: 30                                   # works requested per search query
+  allowed_types: [article, preprint, review]      # drops books, datasets, etc.
+
+relevance:
+  batch_size: 10          # candidate papers per LLM call
+  min_relevance: 2        # keep papers scoring at or above this (scale 0-3)
+  min_keep: 10            # if the filter is too strict, keep the best N instead
+
+ranking:
+  max_papers: 25          # size of the final survey
+  weights:                # should sum to 1
+    relevance: 0.50
+    impact: 0.35
+    recency: 0.15
+
+extraction:
+  batch_size: 5           # papers per summary LLM call
+
+llm:
+  pause_seconds: 2        # wait before every LLM call (rate-limit courtesy)
