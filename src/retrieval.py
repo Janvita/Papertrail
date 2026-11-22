@@ -1,6 +1,8 @@
 """Step 2: search OpenAlex, keep real papers only, remove duplicates."""
-import re, time
+import logging, re, time
 from . import config, openalex
+
+log = logging.getLogger("papertrail")
 
 
 def norm_title(t):
@@ -31,7 +33,7 @@ def search(queries, per_query=config.PER_QUERY):
             else:
                 p["queries"] = [q]
                 by_id[p["paperId"]] = p
-        print(f"  '{q}': {len(raw)} returned, {usable} usable")
+        log.info(f"  '{q}': {len(raw)} returned, {usable} usable")
         time.sleep(0.5)
     return dedupe_titles(list(by_id.values()))
 
@@ -55,5 +57,5 @@ def dedupe_titles(papers):
         out.append(best)
     removed = len(papers) - len(out)
     if removed:
-        print(f"  removed {removed} duplicate titles")
+        log.info(f"  removed {removed} duplicate titles")
     return out

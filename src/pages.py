@@ -15,7 +15,7 @@ def write_pages(topic, papers, info, edges, order, out, qstats=None):
             lines = [
                 f"# {link(p)}",
                 f"{p['year']} | {p['citationCount']} citations"
-                + (f" | relevance {rel:g}/3" if rel is not None else ""), "",
+                + (f" | relevance {rel:g}/3" if rel is not None else " | relevance not scored"), "",
                 f"**Core idea:** {e.get('core_idea')}", "",
                 f"**Architecture:** {e.get('architecture')}", "",
                 f"**Datasets:** {', '.join(e.get('datasets') or []) or 'not stated'}",
@@ -33,7 +33,8 @@ def write_pages(topic, papers, info, edges, order, out, qstats=None):
     for i, pid in enumerate(order, 1):
         p = by_id[pid]
         summary = f" ([summary]({slug(p['title'])}.md))" if info is not None else ""
-        idx.append(f"{i}. {link(p)} ({p['year']}){summary}")
+        flag = " [unscored]" if p.get("relevance") is None else ""
+        idx.append(f"{i}. {link(p)} ({p['year']}){flag}{summary}")
 
     idx += ["", "## Timeline"]
     for p in sorted(papers, key=lambda x: x["year"]):

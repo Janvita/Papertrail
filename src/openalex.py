@@ -1,7 +1,9 @@
 """OpenAlex access: cached GET, abstract rebuild, record normalization."""
-import hashlib, json, os, random, re, sys, time
+import hashlib, json, logging, os, random, re, sys, time
 import requests
 from . import config
+
+log = logging.getLogger("papertrail")
 
 
 def _headers():
@@ -26,7 +28,7 @@ def get(path, params=None):
             except (TypeError, ValueError):
                 wait = 10 * (attempt + 1)
             wait += random.uniform(0, 2)
-            print(f"  rate limited, waiting {wait:.0f}s...")
+            log.warning(f"  OpenAlex rate limited, waiting {wait:.0f}s...")
             time.sleep(wait)
             continue
         r.raise_for_status()

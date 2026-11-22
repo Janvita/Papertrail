@@ -1,5 +1,8 @@
 """Step 3: LLM relevance filter, so off-topic papers never reach the survey."""
+import logging
 from . import config
+
+log = logging.getLogger("papertrail")
 
 
 def score_relevance(papers, topic, llm):
@@ -28,13 +31,13 @@ def score_relevance(papers, topic, llm):
             results = {int(r["id"]): (float(r["score"]), r.get("reason"))
                        for r in data.get("scores", [])}
         except Exception as ex:
-            print(f"  relevance batch at {i} failed ({ex}); keeping those papers unscored")
+            log.warning(f"  relevance batch at {i} failed ({ex}); those papers stay unscored")
             results = {}
         for j, p in enumerate(batch):
             score, reason = results.get(j, (None, None))
             p["relevance"] = score
             p["relevance_reason"] = reason
-        print(f"  scored {min(i + config.RELEVANCE_BATCH, len(papers))}/{len(papers)}")
+        log.info(f"  scored {min(i + config.RELEVANCE_BATCH, len(papers))}/{len(papers)}")
     return papers
 
 
@@ -43,11 +46,14 @@ def filter_relevant(papers, min_relevance=config.MIN_RELEVANCE):
     If that leaves fewer than MIN_KEEP, keep the best MIN_KEEP instead."""
     def rel(p):
         return config.MIN_RELEVANCE if p.get("relevance") is None else p["relevance"]
+    unscored = sum(1 for p in papers if p.get("relevance") is None)
+    if unscored:
+        log.warning(f"  {unscored} papers could not be scored; they are kept but marked unscored")
     kept = [p for p in papers if rel(p) >= min_relevance]
     if len(kept) < config.MIN_KEEP:
         kept = sorted(papers, key=rel, reverse=True)[:config.MIN_KEEP]
-        print(f"  filter was too strict, kept the best {len(kept)} instead")
-    print(f"  relevance filter: kept {len(kept)} of {len(papers)}")
+        log.info(f"  filter was too strict, kept the best {len(kept)} instead")
+    log.info(f"  relevance filter: kept {len(kept)} of {len(papers)}")
     return kept
 
 

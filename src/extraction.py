@@ -1,5 +1,8 @@
 """Step 7: structured summaries from abstracts (batched)."""
+import logging
 from . import config
+
+log = logging.getLogger("papertrail")
 
 SCHEMA_HINT = (
     '{"id": 0, "core_idea": "one sentence", "architecture": "...", '
@@ -36,13 +39,13 @@ def extract_all(papers, llm):
         try:
             res = extract_batch(batch, llm)
         except Exception as ex:
-            print(f"  batch starting at {i} failed ({ex}); trying papers one by one...")
+            log.warning(f"  extraction batch at {i} failed ({ex}); trying papers one by one...")
             res = {}
             for j, p in enumerate(batch):
                 try:
                     res[j] = extract_batch([p], llm)[0]
                 except Exception as ex2:
-                    print("  extract failed:", p["title"], ex2)
+                    log.warning(f"  extraction failed for '{p['title']}': {ex2}")
         for j, p in enumerate(batch):
             info[p["paperId"]] = res.get(j, {})
     return info

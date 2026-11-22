@@ -9,6 +9,8 @@ load_dotenv()
 with (Path(__file__).resolve().parents[1] / "configs" / "pipeline.yaml").open() as f:
     _cfg = yaml.safe_load(f)
 
+RAW = _cfg   # full pipeline.yaml, saved in each run's manifest
+
 CURRENT_YEAR = date.today().year
 
 # Fields that openalex.normalize() reads. Change together with that function.
