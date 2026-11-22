@@ -12,3 +12,4 @@ dist/
 survey_antibody-property-prediction/
 .llm_cache/
 .oa_cache/
+survey_*/
