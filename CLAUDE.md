@@ -5,13 +5,12 @@ Python tool that takes a research topic and produces a literature survey: ranked
 It is also the owner's portfolio project: a research-paper agent tied to their daily work, meant to be extended with new techniques and discussed in interviews. The long-term goal is a genuinely agentic system (LangGraph, planner / retriever / reader / critic loop), not just a script. Prefer clear, well-structured, explainable code over clever code.
 
 Run
-pip install -r requirements.txt
+pdm install                     # dependencies live in pyproject.toml (pinned in pdm.lock); add with `pdm add <pkg>`
 cp .env.example .env            # needs OPENALEX_API_KEY and GROQ_API_KEY
-python run.py "<topic name>"
+python run.py "<topic name>" [--max-papers N] [--min-relevance N] [--no-extract] [--out DIR]
+pdm run pytest                  # no network, no real LLM
 
-python list_models.py           # list model IDs the Groq key can use
-
-Output goes to survey_<topic-slug>/: index.md, one .md per paper, graph.html, debug_candidates.json.
+Output goes to survey_<topic-slug>/: index.md, one .md per paper, graph.html, debug_candidates.json, run.log (full trace incl. relevance reasons), run_manifest.json (models, config, counts, timings, LLM usage).
 
 Pipeline (src/pipeline.py wires these in order)
 topic.py expand topic -> 4 search queries (LLM)
@@ -22,27 +21,27 @@ extraction.py structured summary per paper from the abstract (batched LLM calls)
 pages.py index.md + per-paper pages (titles hyperlinked: arXiv > DOI > OpenAlex)
 graph.py pyvis graph; node number = reading order, color = year, size = citations, click = link
 
-Other modules: config.py (all settings), llm.py (provider-agnostic client), openalex.py (cached API), utils.py (slug, paper_url, link).
+Other modules: config.py (loads configs/pipeline.yaml), llm_config.py (loads configs/llm.yaml), llm.py (provider-agnostic client), openalex.py (cached API), utils.py (slug, paper_url, link), __main__.py (CLI), run.py at the repo root (calls it, so `python run.py` works; `python -m src` is equivalent).
 
 Core data shape
 
 A paper is a plain dict (see openalex.normalize): paperId (e.g. "W2741809807"), title, year, abstract, citationCount, doi, type, externalIds ({"ArXiv": id} when known), refs (list of paperIds it cites), queries (queries that found it). Added later: relevance (0-3 or None), score. Keep this dict flat and JSON-serializable; add new fields rather than changing existing ones.
 
 LLM setup
-Everything goes through llm.get_llm("main" | "filter"). Never create an OpenAI/Groq client anywhere else.
-Provider and models come from .env (LLM_PROVIDER, LLM_MODEL, FILTER_PROVIDER, FILTER_MODEL). The owner only has a free Groq key: daily token limits are tight, so keep prompts short, batch calls, truncate abstracts, and never add per-paper LLM calls without telling them.
+Everything goes through llm.get_llm("main" | "filter" | "topic"): main = extraction, filter = relevance scoring, topic = query expansion. Never create an OpenAI/Groq client anywhere else.
+Providers and the model per role are set in configs/llm.yaml; .env holds API keys only. The owner only has a free Groq key: daily token limits are tight, so keep prompts short, batch calls, truncate abstracts, and never add per-paper LLM calls without telling them.
 All LLM and OpenAlex responses are cached on disk (.llm_cache/, .oa_cache/), keyed by the request. Reruns are free, so: do not delete caches, do not bypass them, and note that changing a prompt string invalidates that prompt's cache entries (that costs quota).
 ask_json must return parsed JSON; models sometimes wrap it in fences or <think> tags (already handled).
 Conventions
 Python 3.10+, standard library plus requests, openai, python-dotenv, pyvis. Ask before adding a dependency.
 One responsibility per module; keep functions small and typed where it helps. New pipeline steps get their own module and one line in pipeline.py.
-All tunables live in config.py or .env, not hardcoded in functions.
+All tunables live in configs/*.yaml (read via config.py / llm_config.py), not hardcoded in functions. Secrets only in .env.
 Never commit .env or the cache folders. Add a .gitignore for .env, .oa_cache/, .llm_cache/, survey_*/.
-Print short progress lines (as the existing code does); do not add a logging framework unless asked.
+Log through logging.getLogger("papertrail") (never print): pipeline.py attaches the console and run.log handlers, so every message lands in run.log.
 Do not reproduce long passages of papers in output. Summaries and short quotes only.
 Testing
 
-There is no real test suite yet. First task: add tests/ (pytest) with no network and no real LLM: monkeypatch openalex.get and LLM.ask_json with fakes (fake works include duplicates, off-topic titles and non-article types). Cover: dedupe, type filter, relevance filter fallback (MIN_KEEP), ranking order, citation_edges, reading_order with a cycle, and an end-to-end run() writing index.md and graph.html. Run pytest before reporting any task as done.
+Only the LLM-role wiring is tested so far (tests/test_llm_roles.py). Next: add the rest of tests/ (pytest) with no network and no real LLM: monkeypatch openalex.get and LLM.ask_json with fakes (fake works include duplicates, off-topic titles and non-article types). Cover: dedupe, type filter, relevance filter fallback (MIN_KEEP), ranking order, citation_edges, reading_order with a cycle, and an end-to-end run() writing index.md and graph.html. Run pytest before reporting any task as done.
 
 Roadmap (do one item at a time, in this order)
 Repo hygiene: git init, .gitignore, tests as above.

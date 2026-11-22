@@ -1,29 +1,18 @@
 [project]
 name = "papertrail"
 version = "0.1.0"
-description = "A research copilot agent that reads, critiques, compares, and traces the evolution of scientific papers"
+description = "Builds a literature survey for a research topic: ranked papers, reading order, summaries and a citation graph"
 requires-python = ">=3.11"
-dependencies = [
-    "pydantic>=2.7",
-    "langgraph>=0.2",
-    "litellm>=1.40",
-    "docling>=2.0",
-    "arxiv>=2.1",
-    "httpx>=0.27",
-    "PyGithub>=2.3",
-    "python-dotenv>=1.0",
-    "pyyaml>=6.0",
-]
+dependencies = ["openai>=3.57.0", "requests>=2.34.2", "pyvis>=0.3.2", "python-dotenv>=1.2.4", "pyyaml>=6.0.4"]
 
-[project.optional-dependencies]
-dev = ["pytest>=8", "ruff>=0.5"]
-
-[build-system]
-requires = ["setuptools>=68"]
-build-backend = "setuptools.build_meta"
-
-[tool.setuptools.packages.find]
-where = ["src"]
+[tool.pdm]
+distribution = false   # a script project, not an installable package: pdm only manages dependencies
 
 [tool.pytest.ini_options]
-pythonpath = ["src"]
+pythonpath = ["."]
+testpaths = ["tests"]
+
+[dependency-groups]
+dev = [
+    "pytest>=9.2.0",
+]
