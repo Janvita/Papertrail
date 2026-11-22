@@ -1,68 +1,62 @@
-# CLAUDE.md: project context for PaperTrail
+Paper Trial
 
-## What this project is
-PaperTrail is a multi-agent **research copilot** for scientific papers. For a paper it extracts the problem, method, datasets, results, strengths, weaknesses, code location and the prior work it builds on. Later it compares papers fairly and traces how a research problem evolved over time.
+Python tool that takes a research topic and produces a literature survey: ranked key papers, a recommended reading order, a hyperlinked index, one summary page per paper, and an interactive citation graph.
 
-- **Owner:** Janvita, AI Specialist (genomics ML + agentic systems).
-- **Domain focus:** Antibody property prediction (public arXiv / bioRxiv / PubMed papers only).
-- **Two goals, equally important:**
-  1. A tool used daily to understand papers in the field.
-  2. A portfolio project to discuss in ML/AI engineering interviews. Every design choice should be explainable, and every improvement should be **measured** (before/after numbers in `evals/results.csv`).
+It is also the owner's portfolio project: a research-paper agent tied to their daily work, meant to be extended with new techniques and discussed in interviews. The long-term goal is a genuinely agentic system (LangGraph, planner / retriever / reader / critic loop), not just a script. Prefer clear, well-structured, explainable code over clever code.
 
-## Hard rules
-- **Public papers only.** Never add code paths that send internal or confidential documents to external APIs.
-- **Evals first.** Don't add a feature without a way to measure it. When changing prompts, models or retrieval, run `python evals/run_eval.py --tag <name>` and report the delta.
-- **Don't invent facts in cards.** "Not reported" (null / empty) is better than a guess. Evidence fields must be verbatim sentences from the paper.
-- **Use an LLM only where it's needed.** Prefer deterministic code (regex, APIs) when it is reliable (see `agents/code_hunter.py`).
-- **The schema is the contract.** `src/papertrail/schemas.py` (`PaperCard`) is used both for agent output and for hand-labeled golden cards. If it changes, update `evals/golden/_template.json`, `evals/metrics.py` and the tests together.
-- Never edit files in `evals/golden/` except `_template.json`. Those are hand labels.
+Run
+pip install -r requirements.txt
+cp .env.example .env            # needs OPENALEX_API_KEY and GROQ_API_KEY
+python run.py "<topic name>"
 
-## Architecture (current: weeks 1–2)
-```
-fetch -> parse (Docling) -> Reader -> valid? --no--> repair (<=2 retries)
-                                        |yes
-                                        v
-                                  Code Hunter -> save card JSON (data/cards/)
-```
-- `src/papertrail/graph.py`: LangGraph `StateGraph` wiring the nodes above.
-- `src/papertrail/agents/reader.py`: Extract → Pydantic validate → feed errors back and repair (Reflexion-style).
-- `src/papertrail/agents/code_hunter.py`: Finds GitHub links in the text and verifies them via the GitHub API, with a title-search fallback.
-- `src/papertrail/tools/`: `fetch.py` (arXiv id / PDF URL / local path), `pdf_parse.py` (Docling → Markdown, cached), `github_lookup.py`.
-- `src/papertrail/llm.py`: The only place LLM calls happen (LiteLLM). It logs tokens and cost. Tracing (Langfuse) will plug in here.
-- `src/papertrail/config.py`: Models and limits, overridable via `.env`.
-- `evals/metrics.py`: Deterministic scores (datasets_f1, results_recall, baselines_f1, code_match, evidence_grounding).
-- `evals/run_eval.py`: Runs all golden papers and appends a summary row to `evals/results.csv`.
+python list_models.py           # list model IDs the Groq key can use
 
-## Tech stack
-Python 3.11+, LangGraph, Pydantic v2, LiteLLM, Docling, arxiv, httpx, PyGithub, pytest.
-Planned: sentence-transformers, Qdrant or pgvector, cross-encoder reranker, Semantic Scholar API, OpenAlex (`pyalex`), MCP Python SDK (FastMCP), NetworkX → Neo4j, Langfuse, DeepEval/Ragas, FastAPI, Streamlit, Docker.
+Output goes to survey_<topic-slug>/: index.md, one .md per paper, graph.html, debug_candidates.json.
 
-## Commands
-```bash
-pip install -e ".[dev]"
-pytest                                    # fast, no API calls
-python -m papertrail.cli <arxiv_id|pdf_url|path> [--model ...]
-python evals/run_eval.py --tag <experiment_name> [--model ...]
-```
+Pipeline (src/pipeline.py wires these in order)
+topic.py expand topic -> 4 search queries (LLM)
+retrieval.py OpenAlex search per query, keep article/preprint/review, dedupe by normalized title
+relevance.py LLM scores each candidate 0-3 from title + abstract; drop below MIN_RELEVANCE
+ranking.py rank = 0.50 relevance + 0.35 log(citations/year) + 0.15 recency; then citation edges (A, B) = A cites B, only inside the set; then reading order (topological, year tiebreak)
+extraction.py structured summary per paper from the abstract (batched LLM calls)
+pages.py index.md + per-paper pages (titles hyperlinked: arXiv > DOI > OpenAlex)
+graph.py pyvis graph; node number = reading order, color = year, size = citations, click = link
 
-## Roadmap (about 12 weeks at 8–10 hrs/week)
-| Weeks | Milestone |
-|---|---|
-| 1–2 | **(current)** Breakdown card, Code Hunter, 10 golden cards, baseline results |
-| 3–4 | Card library + hybrid search + reranker; "ask anything" Q&A with citations |
-| 5–6 | Section-aware context selection instead of naive truncation (measure it) |
-| 7–8 | Critic agent (checks evidence against text), LLM-as-judge for free-text fields, comparison tables that flag unfair comparisons (different datasets/splits/metrics) |
-| 9–10 | Citation tools (Semantic Scholar / OpenAlex) as MCP servers; evolution timeline / citation graph |
-| 11–12 | Daily watch for new papers, model routing (cheap vs. strong), Langfuse tracing, Docker, Streamlit UI, **PaperQA2 baseline comparison** |
+Other modules: config.py (all settings), llm.py (provider-agnostic client), openalex.py (cached API), utils.py (slug, paper_url, link).
 
-## What makes it different from existing tools (Elicit, Consensus, PaperQA2, Asta)
-1. Code verification (does the repo exist, is it usable, does it match the paper).
-2. Unfair-comparison detection across papers.
-3. Personalized to one niche, with memory of what's been read.
-4. Evolution timeline and critical comparison in one tool.
+Core data shape
 
-## How to help in this repo
-- Explain *why* when making design choices. The owner wants to understand and discuss them in interviews, not just get working code.
-- Keep changes small and focused. Suggest the matching eval/test with each change.
-- After meaningful changes, suggest a one-line entry for the README "Results" or a learnings note in `notes/`.
-- Update the "(current)" marker in the roadmap above when a phase is finished.
+A paper is a plain dict (see openalex.normalize): paperId (e.g. "W2741809807"), title, year, abstract, citationCount, doi, type, externalIds ({"ArXiv": id} when known), refs (list of paperIds it cites), queries (queries that found it). Added later: relevance (0-3 or None), score. Keep this dict flat and JSON-serializable; add new fields rather than changing existing ones.
+
+LLM setup
+Everything goes through llm.get_llm("main" | "filter"). Never create an OpenAI/Groq client anywhere else.
+Provider and models come from .env (LLM_PROVIDER, LLM_MODEL, FILTER_PROVIDER, FILTER_MODEL). The owner only has a free Groq key: daily token limits are tight, so keep prompts short, batch calls, truncate abstracts, and never add per-paper LLM calls without telling them.
+All LLM and OpenAlex responses are cached on disk (.llm_cache/, .oa_cache/), keyed by the request. Reruns are free, so: do not delete caches, do not bypass them, and note that changing a prompt string invalidates that prompt's cache entries (that costs quota).
+ask_json must return parsed JSON; models sometimes wrap it in fences or <think> tags (already handled).
+Conventions
+Python 3.10+, standard library plus requests, openai, python-dotenv, pyvis. Ask before adding a dependency.
+One responsibility per module; keep functions small and typed where it helps. New pipeline steps get their own module and one line in pipeline.py.
+All tunables live in config.py or .env, not hardcoded in functions.
+Never commit .env or the cache folders. Add a .gitignore for .env, .oa_cache/, .llm_cache/, survey_*/.
+Print short progress lines (as the existing code does); do not add a logging framework unless asked.
+Do not reproduce long passages of papers in output. Summaries and short quotes only.
+Testing
+
+There is no real test suite yet. First task: add tests/ (pytest) with no network and no real LLM: monkeypatch openalex.get and LLM.ask_json with fakes (fake works include duplicates, off-topic titles and non-article types). Cover: dedupe, type filter, relevance filter fallback (MIN_KEEP), ranking order, citation_edges, reading_order with a cycle, and an end-to-end run() writing index.md and graph.html. Run pytest before reporting any task as done.
+
+Roadmap (do one item at a time, in this order)
+Repo hygiene: git init, .gitignore, tests as above.
+Snowballing (snowball.py): take the top papers, add their most-cited references (from refs) and most-cited citing papers (OpenAlex filter=cites:<id>; fetch works by id with filter=openalex:W1|W2, check the OpenAlex docs for current limits), then re-score relevance and re-rank. Goal: a denser citation graph and a meaningful reading order. Cap the added candidates so Groq quota is not blown.
+Method-family clustering: LLM labels each paper with a family (e.g. GNN, language model, diffusion); color the graph by family and add a family table to index.md.
+Code links (code_links.py): regex GitHub URLs from abstract/full text, then Hugging Face papers API by arXiv id; resolve missing arXiv ids by title via the arXiv API (reject loose matches, rate limit ~1 request / 3 s, cache).
+Full-text pros/cons: fetch arxiv.org/html/<id> (fallback ar5iv), keep only relevant sections, extract pros / limitations / datasets / key results with a supporting quote for each claim. Abstract-only papers are marked "abstract only".
+Agentic refactor (LangGraph): planner -> retriever (with snowballing) -> reader -> critic -> synthesizer. The critic checks coverage (missing method families or year ranges) and extraction faithfulness, and can send the graph back to retrieval. Keep the existing modules as the nodes' building blocks.
+Evaluation: compare found papers against a published survey on the same topic (recall); spot-check 10 extractions. Store the numbers for the README.
+Polish: README with architecture diagram and example output, optional Streamlit UI.
+How to work in this repo
+Before changing anything non-trivial, read the relevant module and propose a short plan first.
+Work on one roadmap item per session; keep diffs small and reviewable; commit after each working step.
+Do not change the output format (index.md layout, graph behavior) unless the task says so.
+After code changes: run the tests, then a real run on a small topic with --max-papers 10 if the keys are set.
+If something would spend meaningful Groq quota or needs a new API key, say so before doing it.
+When unsure about product or API details (OpenAlex, Groq, arXiv, Hugging Face), check the official docs instead of guessing; they change.
