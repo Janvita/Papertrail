@@ -15,3 +15,8 @@ survey_antibody-property-prediction/
 survey_*/
 .pdm-python
 .python-version
+
+# Local planning notes (not committed)
+plan.md
+evals/labels/
+evals/results.csv

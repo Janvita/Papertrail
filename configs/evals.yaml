@@ -1,0 +1,29 @@
+# Evaluation settings (evals/ folder). Nothing here changes pipeline behavior.
+
+reference_review:
+  openalex_id: W4220959747          # "Progress and challenges for the machine learning-based design of fit-for-purpose monoclonal antibodies" (2022)
+  doi: 10.1080/19420862.2021.2008790
+
+topic: antibody binding affinity prediction from sequence
+
+# A reference counts as "on-topic" for restricted recall if its title contains one of these (case-insensitive).
+topic_keywords:
+  - antibod
+  - affinity
+  - binding
+  - sequence
+  - language model
+  - paratope
+  - epitope
+
+labeling:
+  sample_size: 60
+  seed: 42
+  abstract_chars: 700               # the relevance prompt truncates to 700 chars anyway
+
+filter_eval:
+  threshold: 2                      # batch size comes from configs/pipeline.yaml (relevance.batch_size)
+  models:                           # provider is always groq for this comparison
+    - openai/gpt-oss-120b
+    - qwen/qwen3.8-27b
+    - openai/gpt-oss-20b
